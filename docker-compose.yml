@@ -1,0 +1,63 @@
+version: '3.8'
+
+x-common-variables: &common-variables
+  MYSQL_DATABASE: db
+  MYSQL_USER: user
+  MYSQL_PASSWORD: password
+
+services:
+  db:
+    image: mysql/mysql-server:8.0.23
+    restart: always
+    environment:
+      <<: *common-variables
+      # Password for root access
+      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_HOST: localhost
+    ports:
+      # <Port exposed> : < MySQL Port running inside container>
+      - '3306:3306'
+    expose:
+      # Opens port 3306 on the container
+      - '3306'
+      # Where our data will be persisted
+    volumes:
+      - my-db:/var/lib/mysql
+
+  nginx:
+    depends_on:
+      - api
+      - client
+    restart: always
+    build:
+      dockerfile: Dockerfile
+      context: ./nginx
+    ports:
+      - "3050:80"
+
+  api:
+    build:
+      dockerfile: Dockerfile
+      context: "./server"
+    depends_on:
+      - db
+    volumes:
+      - /app/node_modules
+      - ./server:/app
+    environment:
+      <<: *common-variables
+      MYSQL_HOST_IP: mysql_db
+
+  client:
+    stdin_open: true
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    build:
+      dockerfile: Dockerfile
+      context: ./client
+    volumes:
+      - /app/node_modules
+      - ./client:/app
+# Names our volume
+volumes:
+  my-db:
